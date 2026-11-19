@@ -24,6 +24,7 @@ if (!document.documentElement.hasAttribute('data-arriving') && !location.hash &&
       word.textContent = (name.slice(0, count) + noise()).padEnd(name.length);
       await pause(52);
     }
+    word.textContent = '';
     const seed = pickTransitionSeed();
     scramble(false, () => {
       overlay?.remove();
