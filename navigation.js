@@ -1,8 +1,16 @@
 (() => {
   const site = document.querySelector('#site');
   const frame = document.querySelector('#page-frame');
-  const wordmark = site.querySelector('.wordmark');
-  const navigation = [...site.querySelectorAll('.mast [data-route], .site-nav [data-route]')];
+  const wordmark = document.createElement('a');
+  wordmark.className = 'wordmark';
+  wordmark.href = new URL('index.html#page-content', document.currentScript.src).href;
+  wordmark.dataset.route = 'home';
+  wordmark.textContent = 'ashesh';
+  wordmark.setAttribute('aria-label', 'Ashesh Das, home');
+  if (document.body.dataset.page === 'home') wordmark.setAttribute('aria-current', 'page');
+  site.querySelector('.mast').append(wordmark);
+
+  const navigation = [wordmark, ...site.querySelectorAll('.site-nav [data-route]')];
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const pagePath = url => new URL(url).pathname.replace(/\/index\.html$/, '/');
   const routes = new Map(navigation.map(link => {
@@ -210,7 +218,7 @@
   const arrival = performance.getEntriesByType('navigation')[0]?.type;
   if (arrival === 'navigate' && location.hash === '#page-content' && !reducedMotion.matches) {
     const style = getComputedStyle(wordmark);
-    const from = current.dataset.page === 'home' ? style.getPropertyValue('--compact-scale') : 1;
+    const from = style.getPropertyValue(current.dataset.page === 'home' ? '--compact-scale' : '--home-scale');
     arrivalResize = wordmark.animate(
       [{transform: 'scale(' + from + ')'}, {transform: style.transform}],
       {duration: parseFloat(style.transitionDuration) * 1000, easing: style.transitionTimingFunction},

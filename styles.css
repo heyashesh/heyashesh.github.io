@@ -56,6 +56,7 @@ a:focus-visible { outline: 1px solid #a5a5a5; outline-offset: .25rem; }
   line-height: 1;
 }
 .wordmark {
+  --home-scale: .8;
   --compact-scale: .42;
   display: block;
   width: max-content;
@@ -65,8 +66,7 @@ a:focus-visible { outline: 1px solid #a5a5a5; outline-offset: .25rem; }
   transform-origin: top left;
   transition: transform .52s var(--ease);
 }
-body[data-page="home"] .wordmark { transform: scale(1); }
-.wordmark:is(:hover, :focus-visible) { animation: fracture .32s steps(1) 2; }
+body[data-page="home"] .wordmark { transform: scale(var(--home-scale)); }
 
 .site-nav {
   position: fixed;
@@ -172,11 +172,6 @@ body[data-page="home"] .wordmark { transform: scale(1); }
   align-content: center;
   color: var(--ink);
   pointer-events: none;
-}
-@keyframes fracture {
-  0%, 51%, 79%, 100% { opacity: 1; }
-  43% { opacity: .72; }
-  70% { opacity: .88; }
 }
 
 #boot {
