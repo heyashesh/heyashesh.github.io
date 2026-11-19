@@ -1,321 +1,216 @@
-const localTime = document.querySelector('.location time');
-if (localTime) {
-  const clock = new Intl.DateTimeFormat('en-US', {timeZone:'America/New_York', hour:'2-digit', minute:'2-digit'});
-  const updateClock = () => { localTime.textContent = clock.format(new Date()); };
-  updateClock();
-  setInterval(updateClock, 10000);
-}
+(() => {
+  const site = document.querySelector('#site');
+  const frame = document.querySelector('#page-frame');
+  const wordmark = site.querySelector('.wordmark');
+  const navigation = [...site.querySelectorAll('.mast [data-route], .site-nav [data-route]')];
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
+  const pagePath = url => new URL(url).pathname.replace(/\/index\.html$/, '/');
+  const routes = new Map(navigation.map(link => [pagePath(link.href), link.dataset.route]));
 
-const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  let current = frame.querySelector('main');
+  let currentPath = pagePath(location.href);
+  let pendingNavigation;
+  let arrivalResize;
+  let pageEffects = new AbortController();
+  const pages = new Map([[currentPath, {main: current.cloneNode(true), title: document.title}]]);
+  const positions = new Map();
+  const labelAnimations = new WeakMap();
 
-function enableSmoothWheel(scroller, speed = 1) {
-  const input = scroller === document.scrollingElement ? window : scroller;
-  const frameInterval = 1000 / 60;
-  let target = 0;
-  let frame = 0;
-  let previousTime;
+  function decodeLabel(element, signal, delay = 0) {
+    labelAnimations.get(element)?.();
+    const label = element.textContent;
+    const glyphs = '#%+=01';
+    const start = performance.now() + delay;
+    let frameId;
+    let previousTick = -1;
 
-  function stop() {
-    cancelAnimationFrame(frame);
-    frame = 0;
-    previousTime = undefined;
-  }
-
-  function glide(now) {
-    const position = scroller.scrollTop;
-    const destination = Math.min(target, scroller.scrollHeight - scroller.clientHeight);
-    const remaining = destination - position;
-    if (Math.abs(remaining) < 1) {
-      scroller.scrollTo({top: destination, behavior: 'instant'});
-      stop();
-      return;
+    function clear() {
+      cancelAnimationFrame(frameId);
+      element.classList.remove('decoding');
+      delete element.dataset.glyphs;
+      labelAnimations.delete(element);
+      signal.removeEventListener('abort', clear);
     }
-    const elapsed = now - (previousTime ?? (now - frameInterval));
-    previousTime = now;
-    const fraction = 1 - Math.pow(.84, elapsed / frameInterval);
-    const step = Math.sign(remaining) * Math.max(1, Math.abs(remaining) * fraction);
-    scroller.scrollTo({top: position + step, behavior: 'instant'});
-    frame = requestAnimationFrame(glide);
-  }
 
-  input.addEventListener('wheel', event => {
-    const unit = [1, 16, scroller.clientHeight][event.deltaMode] || 1;
-    if (reduced.matches || event.defaultPrevented || !event.cancelable || event.ctrlKey || event.shiftKey ||
-        !event.deltaY || Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
-
-    const position = scroller.scrollTop;
-    const delta = event.deltaY * unit * speed;
-    const start = frame && Math.sign(target - position) === Math.sign(delta) ? target : position;
-    target = Math.min(scroller.scrollHeight - scroller.clientHeight, Math.max(0, start + delta));
-    if (!frame && target === position) return;
-    event.preventDefault();
-    if (!frame) frame = requestAnimationFrame(glide);
-  }, {passive: false});
-  input.addEventListener('pointerdown', stop);
-  input.addEventListener('keydown', stop);
-  reduced.addEventListener('change', stop);
-}
-
-if (document.body.classList.contains('about-page')) enableSmoothWheel(document.scrollingElement);
-
-const arrivalStorageKey = 'portfolio-arrival';
-const transitionRoot = document.documentElement;
-if (transitionRoot.dataset.arriving === 'pending') transitionRoot.dataset.arriving = 'covered';
-
-function pickTransitionSeed() { return Math.floor(Math.random() * 0x100000000); }
-
-let overlay;
-function scramble(entering, done, seed = pickTransitionSeed()) {
-  const canvas = document.createElement('canvas');
-  const ctx = canvas.getContext('2d');
-  if (!ctx || !innerWidth || !innerHeight) return done();
-  overlay = canvas;
-  canvas.className = 'scramble-screen';
-  canvas.setAttribute('aria-hidden', 'true');
-  canvas.width = innerWidth;
-  canvas.height = innerHeight;
-  document.body.append(canvas);
-  const background = getComputedStyle(document.documentElement).backgroundColor;
-  const glyphs = '#@%=+*;:/<>01';
-  const cols = Math.ceil(canvas.width / 11);
-  const rows = Math.ceil(canvas.height / 17);
-  const total = cols * rows;
-  const visited = new Uint8Array(total);
-  const frontier = [];
-  const cells = [];
-  let randomState = seed;
-  function random() {
-    randomState = (Math.imul(randomState, 1664525) + 1013904223) >>> 0;
-    return randomState / 0x100000000;
-  }
-  function infect(index) {
-    if (visited[index]) return;
-    visited[index] = 1;
-    frontier.push(index);
-    cells.push({x: index % cols * 11, y: Math.floor(index / cols) * 17,
-      distance: cells.length, seed: Math.floor(random() * 100)});
-  }
-  for (let i = 0; i < 6; i++) infect(Math.floor(random() * total));
-  while (frontier.length) {
-    // Extend a tip for several cells, then branch from another live tip.
-    const slot = Math.floor(random() * frontier.length);
-    let tip = frontier[slot];
-    for (let step = 0; step < 12; step++) {
-      const neighbors = [];
-      if (tip % cols) neighbors.push(tip - 1);
-      if (tip % cols < cols - 1) neighbors.push(tip + 1);
-      if (tip >= cols) neighbors.push(tip - cols);
-      if (tip + cols < total) neighbors.push(tip + cols);
-      const free = neighbors.filter(index => !visited[index]);
-      if (!free.length) {
-        if (step === 0) {
-          frontier[slot] = frontier[frontier.length - 1];
-          frontier.pop();
-        }
-        break;
+    function draw(now) {
+      const tick = Math.max(0, Math.floor((now - start) / 40));
+      if (tick >= 8 || reducedMotion.matches) return clear();
+      if (tick !== previousTick) {
+        previousTick = tick;
+        element.dataset.glyphs = Array.from(label, (char, i) =>
+          /\s/.test(char) || i * 5 % 8 <= tick ? char : glyphs[(i + tick) % glyphs.length]
+        ).join('');
       }
-      tip = free[Math.floor(random() * free.length)];
-      infect(tip);
+      frameId = requestAnimationFrame(draw);
     }
-  }
-  const started = performance.now();
-  let finished = false;
-  function finish() {
-    if (finished) return;
-    finished = true;
-    clearTimeout(deadline);
-    done();
-  }
-  const deadline = setTimeout(finish, 480);
-  function draw(now) {
-    if (finished || !canvas.isConnected) return;
-    const progress = Math.max(0, Math.min(1, (now - started) / 360));
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.font = '14px monospace';
-    const distance = Math.floor(progress * total);
-    const tick = Math.floor((entering ? 1 - progress : progress) * 9);
-    for (const cell of cells) {
-      if ((cell.distance < distance) === entering) continue;
-      ctx.fillStyle = background;
-      ctx.fillRect(cell.x, cell.y, 11, 17);
-      ctx.fillStyle = cell.seed % 3 ? '#777' : '#ccc';
-      ctx.fillText(glyphs[(cell.seed + tick) % glyphs.length], cell.x, cell.y + 13);
-    }
-    if (progress < 1) requestAnimationFrame(draw);
-    else finish();
-  }
-  draw(started);
-}
-function finishArrival() {
-  const state = transitionRoot.dataset.arriving;
-  if (state !== 'covered' && state !== 'playing') return;
-  overlay?.remove();
-  overlay = null;
-  transitionRoot.dataset.arriving = 'complete';
-  delete transitionRoot.dataset.transitionSeed;
-  dispatchEvent(new Event('arrivalcomplete'));
-}
 
-addEventListener('DOMContentLoaded', () => {
-  if (transitionRoot.dataset.arriving !== 'covered') return;
-  if (reduced.matches) return finishArrival();
-  try {
-    const seed = Number(transitionRoot.dataset.transitionSeed);
-    scramble(true, finishArrival, Number.isInteger(seed) ? seed : undefined);
-    // The first frame is opaque. Later frames uncover the page cell by cell.
-    if (transitionRoot.dataset.arriving === 'covered') transitionRoot.dataset.arriving = 'playing';
-  } catch { finishArrival(); }
-}, {once: true});
-document.addEventListener('click', event => {
-  const link = event.target.closest('a[href]');
-  if (!link || link.protocol !== location.protocol || link.origin !== location.origin ||
-      (link.pathname === location.pathname && link.search === location.search) ||
-      reduced.matches || event.defaultPrevented || event.button !== 0 ||
-      event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || link.target || link.hasAttribute('download')) return;
-  if (overlay?.isConnected) {
-    event.preventDefault();
-    return;
+    labelAnimations.set(element, clear);
+    signal.addEventListener('abort', clear, {once: true});
+    element.classList.add('decoding');
+    draw(performance.now());
   }
-  const seed = pickTransitionSeed();
-  try { sessionStorage.setItem(arrivalStorageKey, JSON.stringify({url:link.href, time:Date.now(), seed})); }
-  catch { return; }
-  event.preventDefault();
-  endHover();
-  scramble(false, () => location.assign(link.href), seed);
-});
-addEventListener('pageshow', event => {
-  if (!event.persisted) return;
-  finishArrival();
-  overlay?.remove();
-  overlay = null;
-});
 
-// Preserve the real text for layout and assistive technology throughout decoding.
-if (!reduced.matches) {
-  const aboutPage = document.body.classList.contains('about-page');
-  let nextStart = 0;
-  const observer = new IntersectionObserver(entries => {
-    for (const entry of entries.sort((a,b) => a.boundingClientRect.top - b.boundingClientRect.top)) {
-      if (!entry.isIntersecting) continue;
-      const element = entry.target;
-      observer.unobserve(element);
-      const now = performance.now();
-      const earliest = overlay ? 320 : 0;
-      const delay = Math.max(earliest, nextStart - now);
-      nextStart = now + delay + 175;
-      element.classList.add('decode-pending');
-      setTimeout(() => {
-        element.classList.remove('decode-pending');
-        if (reduced.matches) return;
-        if (element.hasAttribute('data-reveal')) {
-          element.classList.add('revealing');
-          return;
-        }
-        const original = element.textContent;
-        element.classList.add('decoding');
-        const glyphs = 'Aλx=ΣvᵀI';
-        const start = performance.now();
-        function decode(now) {
-          const frame = Math.floor((now - start) / 45);
-          if (frame >= 12 || reduced.matches) {
-            element.classList.remove('decoding');
-            delete element.dataset.decode;
-            return;
-          }
-          element.dataset.decode = Array.from(original, (char, i) =>
-            /\s/.test(char) || (i * 7 % 13) <= frame ? char : glyphs[(i + frame) % glyphs.length]
-          ).join('');
-          requestAnimationFrame(decode);
-        }
-        decode(start);
-      }, delay);
+  function animateElements(elements, signal) {
+    if (reducedMotion.matches) return;
+    elements.forEach((element, index) => {
+      if (element.hasAttribute('data-reveal')) {
+        element.style.setProperty('--reveal-delay', index * 70 + 'ms');
+        element.classList.add('revealing');
+        return;
+      }
+
+      decodeLabel(element, signal, index * 65);
+    });
+  }
+
+  function mountPage(signal, animateNavigation = false) {
+    const clock = current.querySelector('.location time');
+    if (clock) {
+      const format = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit',
+      });
+      const update = () => { clock.textContent = format.format(new Date()); };
+      update();
+      const timer = setInterval(update, 10000);
+      signal.addEventListener('abort', () => clearInterval(timer), {once: true});
     }
+
+    const projects = current.querySelector('.entries');
+    if (projects) initProjects(projects, reducedMotion, signal);
+    animateElements([...current.querySelectorAll('[data-reveal], [data-decode]')], signal);
+    if (animateNavigation) animateElements(navigation.filter(link => link.hasAttribute('data-decode')), signal);
+  }
+
+  function removeLeavingPage() {
+    frame.querySelector('.page-leaving')?.remove();
+  }
+
+  function showPage(page, url, restoreScroll) {
+    removeLeavingPage();
+    pageEffects.abort();
+    arrivalResize?.cancel();
+    pageEffects = new AbortController();
+    const outgoing = current;
+    const scroll = positions.get(pagePath(url.href));
+
+    current = page.main.cloneNode(true);
+    currentPath = pagePath(url.href);
+    document.title = page.title;
+    document.body.dataset.page = current.dataset.page;
+
+    for (const link of navigation) {
+      if (link.dataset.route === current.dataset.page) link.setAttribute('aria-current', 'page');
+      else link.removeAttribute('aria-current');
+    }
+
+    if (reducedMotion.matches) {
+      outgoing.replaceWith(current);
+    } else {
+      outgoing.removeAttribute('id');
+      outgoing.inert = true;
+      outgoing.setAttribute('aria-hidden', 'true');
+      outgoing.style.setProperty('--exit-top', -scrollY + 'px');
+      outgoing.classList.remove('page-entering');
+      outgoing.classList.add('page-leaving');
+      outgoing.addEventListener('animationend', event => {
+        if (event.target === outgoing && event.animationName === 'page-out') outgoing.remove();
+      });
+      outgoing.addEventListener('animationcancel', event => {
+        if (event.target === outgoing && event.animationName === 'page-out') outgoing.remove();
+      });
+      pageEffects.signal.addEventListener('abort', () => outgoing.remove(), {once: true});
+      current.classList.add('page-entering');
+      frame.append(current);
+      current.addEventListener('animationend', event => {
+        if (event.target === current && event.animationName === 'page-in') current.classList.remove('page-entering');
+      });
+    }
+
+    const fragment = url.hash.slice(1);
+    const anchor = fragment && document.getElementById(fragment);
+    if (anchor) anchor.scrollIntoView();
+    else scrollTo({top: restoreScroll ? scroll?.window ?? 0 : 0, behavior: 'instant'});
+    if (restoreScroll && scroll?.projects) {
+      const entries = current.querySelector('.entries');
+      if (entries) entries.scrollTop = scroll.projects;
+    }
+
+    current.focus({preventScroll: true});
+    mountPage(pageEffects.signal);
+  }
+
+  async function navigate(url, fromHistory = false) {
+    pendingNavigation?.abort();
+    const path = pagePath(url.href);
+    if (path === currentPath) return;
+
+    const request = new AbortController();
+    pendingNavigation = request;
+
+    try {
+      let page = pages.get(path);
+      if (!page) {
+        const response = await fetch(url, {signal: request.signal});
+        if (!response.ok) throw new Error('Page could not be loaded.');
+        const html = new DOMParser().parseFromString(await response.text(), 'text/html');
+        const main = html.querySelector('#page-content');
+        if (main?.dataset.page !== routes.get(path)) throw new Error('Page layout was not found.');
+        page = {main, title: html.title};
+        pages.set(path, page);
+      }
+      if (request.signal.aborted) return;
+      positions.set(currentPath, {window: scrollY, projects: current.querySelector('.entries')?.scrollTop});
+      if (!fromHistory) {
+        const destination = new URL(url);
+        if (destination.hash === '#page-content') destination.hash = '';
+        history.pushState(null, '', destination);
+      }
+      showPage(page, url, fromHistory);
+    } catch {
+      if (!request.signal.aborted) {
+        if (fromHistory) location.reload();
+        else location.assign(url);
+      }
+    } finally {
+      if (pendingNavigation === request) pendingNavigation = null;
+    }
+  }
+
+  if (location.protocol === 'http:' || location.protocol === 'https:') {
+    history.scrollRestoration = 'manual';
+    site.addEventListener('click', event => {
+      const link = event.target.closest('a[data-route]');
+      if (!link || event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey ||
+          event.shiftKey || event.altKey || link.target || link.hasAttribute('download')) return;
+      const url = new URL(link.href);
+      if (url.origin !== location.origin || !routes.has(pagePath(url.href))) return;
+      url.pathname = pagePath(url.href);
+      event.preventDefault();
+      navigate(url);
+    });
+    addEventListener('popstate', () => {
+      const url = new URL(location.href);
+      if (routes.has(pagePath(url.href))) navigate(url, true);
+    });
+  }
+
+  site.addEventListener('pointerover', event => {
+    const label = event.target.closest('.site-nav a, .information a[href]');
+    if (!label || label.contains(event.relatedTarget) || labelAnimations.has(label) ||
+        event.pointerType === 'touch' || reducedMotion.matches) return;
+    decodeLabel(label, pageEffects.signal);
   });
-  addEventListener('DOMContentLoaded', () => {
-    const arriving = transitionRoot.dataset.arriving === 'playing';
-    const shared = '.wordmark, nav > a, nav > span, .mast-action';
-    const targets = document.querySelectorAll(aboutPage
-      ? `${shared}, nav > button, [data-reveal], .about-intro, .about-section h2,
-         .about-section-copy > p, .contact-grid h2, .contact-grid a, .back-to-top`
-      : shared);
-    if (aboutPage || arriving) targets.forEach(element => element.classList.add('decode-pending'));
-    const observePage = () => targets.forEach(element => observer.observe(element));
-    if (document.querySelector('#boot:not([hidden])')) addEventListener('introcomplete', observePage, {once:true});
-    else if (arriving) addEventListener('arrivalcomplete', observePage, {once:true});
-    else observePage();
-  });
-}
 
-const brand = document.querySelector('.wordmark');
-const brandText = brand.textContent;
-function scheduleWordmark() {
-  setTimeout(() => {
-    if (!document.hidden && !reduced.matches && !brand.matches('.decode-pending, .decoding')) {
-      let step = 0;
-      const burst = setInterval(() => {
-        if (++step >= 6 || reduced.matches || document.hidden) {
-          clearInterval(burst);
-          brand.textContent = brandText;
-          return;
-        }
-        const i = Math.floor(Math.random() * brandText.length);
-        brand.textContent = brandText.slice(0,i) + 'λΣΔ01'[step % 5] + brandText.slice(i + 1);
-      }, 55);
-    }
-    scheduleWordmark();
-  }, 4200 + Math.random() * 5500);
-}
-scheduleWordmark();
+  // Native navigation, including file previews, replaces the wordmark along with the page.
+  const arrival = performance.getEntriesByType('navigation')[0]?.type;
+  if (arrival === 'navigate' && location.hash === '#page-content' && !reducedMotion.matches) {
+    const style = getComputedStyle(wordmark);
+    const from = current.dataset.page === 'home' ? style.getPropertyValue('--compact-scale') : 1;
+    arrivalResize = wordmark.animate(
+      [{transform: 'scale(' + from + ')'}, {transform: style.transform}],
+      {duration: parseFloat(style.transitionDuration) * 1000, easing: style.transitionTimingFunction},
+    );
+  }
 
-// Overlay just the label so icons, link names and the scroll-selected title stay intact.
-let endHover = () => {};
-document.addEventListener('pointerover', event => {
-  const link = event.target.closest('a[href], button:enabled');
-  if (!link || overlay?.isConnected || link.matches('.decode-pending, .decoding') || link.contains(event.relatedTarget) ||
-      reduced.matches || event.pointerType === 'touch') return;
-  endHover();
-  const label = [...link.childNodes].find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
-  if (!label) return;
-  const range = document.createRange();
-  range.selectNodeContents(label);
-  const rect = range.getBoundingClientRect();
-  const style = getComputedStyle(link);
-  const ghost = document.createElement('span');
-  ghost.className = 'hover-scramble';
-  ghost.setAttribute('aria-hidden', 'true');
-  Object.assign(ghost.style, {
-    backgroundColor: style.getPropertyValue('--link-surface').trim(),
-    color: style.color,
-    left: rect.left + 'px', top: rect.top + 'px', height: rect.height + 'px',
-    width: rect.width + 'px', fontFamily: style.fontFamily, fontSize: style.fontSize,
-    fontWeight: style.fontWeight, fontStyle: style.fontStyle, lineHeight: rect.height + 'px',
-    letterSpacing: style.letterSpacing, textTransform: style.textTransform, opacity: style.opacity
-  });
-  const original = label.textContent;
-  const positions = Array.from(original, (char, i) => i).filter(i => original[i].trim());
-  for (let i = positions.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [positions[i], positions[j]] = [positions[j], positions[i]];
-  }
-  const start = performance.now();
-  let timer;
-  endHover = () => {
-    clearTimeout(timer);
-    ghost.remove();
-    link.removeEventListener('pointerleave', endHover);
-    endHover = () => {};
-  };
-  link.addEventListener('pointerleave', endHover);
-  function tick() {
-    const progress = Math.max(0, (performance.now() - start - 55) / 240);
-    if (progress >= 1 || reduced.matches || !link.isConnected) return endHover();
-    const count = Math.round(Math.sin(progress * Math.PI) * Math.ceil(positions.length * .45));
-    const chars = Array.from(original);
-    for (const i of positions.slice(0, count)) chars[i] = 'Σ01λ+#'[Math.floor(Math.random() * 6)];
-    ghost.textContent = chars.join('');
-    if (count && !ghost.isConnected) document.body.append(ghost);
-    timer = setTimeout(tick, 22);
-  }
-  tick();
-});
-addEventListener('scroll', () => endHover(), true);
+  playOpening(site, reducedMotion, () => mountPage(pageEffects.signal, true));
+})();
