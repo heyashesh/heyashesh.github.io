@@ -5,7 +5,12 @@
   const navigation = [...site.querySelectorAll('.mast [data-route], .site-nav [data-route]')];
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
   const pagePath = url => new URL(url).pathname.replace(/\/index\.html$/, '/');
-  const routes = new Map(navigation.map(link => [pagePath(link.href), link.dataset.route]));
+  const routes = new Map(navigation.map(link => {
+    const href = link.href;
+    // Keep the shared links anchored to this document when pushState changes its URL.
+    link.href = href;
+    return [pagePath(href), link.dataset.route];
+  }));
 
   let current = frame.querySelector('main');
   let currentPath = pagePath(location.href);
@@ -150,7 +155,7 @@
     try {
       let page = pages.get(path);
       if (!page) {
-        const response = await fetch(url, {signal: request.signal});
+        const response = await fetch(url, {cache: 'no-cache', signal: request.signal});
         if (!response.ok) throw new Error('Page could not be loaded.');
         const html = new DOMParser().parseFromString(await response.text(), 'text/html');
         const main = html.querySelector('#page-content');
