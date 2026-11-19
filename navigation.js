@@ -58,12 +58,11 @@ function enableSmoothWheel(scroller, speed = 1) {
 
 if (document.body.classList.contains('about-page')) enableSmoothWheel(document.scrollingElement);
 
-const transitKey = 'portfolio-arrival';
 let overlay;
 function scramble(entering, done) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
-  if (!ctx) return done();
+  if (!ctx || !innerWidth || !innerHeight) return done();
   overlay = canvas;
   canvas.className = 'scramble-screen';
   canvas.setAttribute('aria-hidden', 'true');
@@ -136,14 +135,19 @@ function scramble(entering, done) {
   }
   draw(started);
 }
-try {
-  const arrival = JSON.parse(sessionStorage.getItem(transitKey));
-  sessionStorage.removeItem(transitKey);
-  if (arrival?.url === location.href && Date.now() - arrival.time < 10000 && !reduced.matches) {
-    document.documentElement.setAttribute('data-arriving', '');
-    scramble(true, () => { overlay?.remove(); overlay = null; });
-  }
-} catch { /* Direct navigation still works when browser storage is unavailable. */ }
+function finishArrival() {
+  if (pageRoot.getAttribute('data-arriving') !== 'playing') return;
+  overlay?.remove();
+  overlay = null;
+  pageRoot.setAttribute('data-arriving', 'complete');
+  dispatchEvent(new Event('arrivalcomplete'));
+}
+
+if (pageRoot.getAttribute('data-arriving') === 'pending') {
+  pageRoot.setAttribute('data-arriving', 'playing');
+  try { scramble(true, finishArrival); }
+  catch { finishArrival(); }
+}
 document.addEventListener('click', event => {
   const link = event.target.closest('a[href]');
   if (!link || link.protocol !== location.protocol || link.origin !== location.origin ||
@@ -158,7 +162,10 @@ document.addEventListener('click', event => {
   });
 });
 addEventListener('pageshow', event => {
-  if (event.persisted) { overlay?.remove(); overlay = null; }
+  if (!event.persisted) return;
+  finishArrival();
+  overlay?.remove();
+  overlay = null;
 });
 
 // Preserve the real text for layout and assistive technology throughout decoding.
@@ -203,14 +210,16 @@ if (!reduced.matches) {
     }
   });
   addEventListener('DOMContentLoaded', () => {
+    const arriving = pageRoot.getAttribute('data-arriving') === 'playing';
     const shared = '.wordmark, nav > a, nav > span, .mast-action';
     const targets = document.querySelectorAll(aboutPage
       ? `${shared}, nav > button, [data-reveal], .about-intro, .about-section h2,
          .about-section-copy > p, .contact-grid h2, .contact-grid a, .back-to-top`
       : shared);
-    if (aboutPage) targets.forEach(element => element.classList.add('decode-pending'));
+    if (aboutPage || arriving) targets.forEach(element => element.classList.add('decode-pending'));
     const observePage = () => targets.forEach(element => observer.observe(element));
     if (document.querySelector('#boot:not([hidden])')) addEventListener('introcomplete', observePage, {once:true});
+    else if (arriving) addEventListener('arrivalcomplete', observePage, {once:true});
     else observePage();
   });
 }

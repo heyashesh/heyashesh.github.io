@@ -10,6 +10,7 @@ nav button::after { content: '↗'; margin-left: .35em; }
 .decoding { position: relative; color: transparent !important; }
 @media screen and (prefers-reduced-motion: no-preference) {
   html, .entries { scroll-behavior: smooth; }
+  :root:is([data-arriving="pending"], [data-arriving="playing"]) body > :not(.scramble-screen) { visibility: hidden; }
   .decode-pending:not(:focus-visible) { opacity: 0 !important; }
   .revealing { animation: clarify .54s; }
 }
