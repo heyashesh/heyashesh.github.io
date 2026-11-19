@@ -1,20 +1,56 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="description"
-      content="Personal portfolio of Ashesh."
-    />
-    <title>Ashesh — Portfolio</title>
-    <link rel="stylesheet" href="styles.css" />
-  </head>
-  <body>
-    <main>
-      <p class="eyebrow">Portfolio — in progress</p>
-      <h1>Ashesh</h1>
-      <p class="intro">A personal portfolio is taking shape.</p>
-    </main>
-  </body>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>About me — Ashesh</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="navigation.js" defer></script>
+  <script src="portfolio.js" defer></script>
+</head>
+<body class="about-page">
+  <aside id="boot" hidden aria-hidden="true"><pre></pre></aside>
+  <header class="mast" id="top" tabindex="-1">
+    <a href="index.html" class="wordmark" aria-label="Ashesh, home">ashesh</a>
+    <nav aria-label="Portfolio navigation">
+      <span aria-current="page">about me</span>
+      <a href="projects.html">projects</a>
+      <button disabled title="Résumé PDF coming soon">résumé <small>pdf · soon</small></button>
+    </nav>
+    <a class="mast-action" href="mailto:ashesh.das@gatech.edu">email</a>
+  </header>
+  <main id="about">
+    <div class="about-hero">
+      <h1 class="about-intro">I’m Ashesh, a mathematics &amp; computing student at <strong class="tech">Georgia Tech</strong>, based in <span class="about-location"><span class="about-peach" aria-hidden="true">🍑</span>&nbsp;Atlanta, Georgia.</span></h1>
+    </div>
+    <section class="about-section" id="work" aria-labelledby="work-title">
+      <h2 id="work-title">Info</h2>
+      <div class="about-section-copy">
+        <p>This space will feature selected projects in mathematics and software development, from small experiments to more developed builds.</p>
+        <p>Each project will have a short write-up about the problem, the approach I took, and what I learned from building it.</p>
+      </div>
+    </section>
+    <section class="about-section" id="experience" aria-labelledby="experience-title">
+      <h2 id="experience-title">Experience</h2>
+      <div class="about-section-copy">
+        <p>This space will cover my academic and professional experience, including the teams I’ve worked with and what I contributed.</p>
+        <p>I’ll also share a few of the things I’ve learned along the way and how they’ve shaped the way I approach new problems.</p>
+      </div>
+    </section>
+  </main>
+  <footer id="contact">
+    <div class="contact-grid">
+      <div>
+        <h2>Get in touch</h2>
+        <a href="mailto:ashesh.das@gatech.edu">ashesh.das@gatech.edu</a>
+        <div class="location" data-reveal>Atlanta, Georgia<br>Local time <time></time><br>33.7756° N, 84.3963° W</div>
+      </div>
+      <div class="socials">
+        <a href="https://github.com/heyashesh"><svg aria-hidden="true" viewBox="0 0 16 16"><path d="M8 0a8 8 0 0 0-2.53 15.59c.4.07.55-.17.55-.39v-1.49c-2.23.49-2.7-.95-2.7-.95-.36-.93-.89-1.18-.89-1.18-.73-.5.05-.49.05-.49.81.06 1.23.83 1.23.83.72 1.23 1.88.88 2.34.67.07-.52.28-.88.51-1.08-1.78-.2-3.65-.89-3.65-3.96 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.22 2.2.82a7.64 7.64 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.28.82 2.15 0 3.08-1.88 3.75-3.67 3.95.29.25.54.74.54 1.5v2.2c0 .22.15.47.55.39A8 8 0 0 0 8 0z"/></svg>GitHub</a>
+        <a href="https://www.linkedin.com/in/asheshdas/"><svg aria-hidden="true" viewBox="0 0 24 24"><rect width="24" height="24" rx="2"/><path fill="#fff" d="M4 9h3.5v11H4zm1.75-5a2 2 0 1 1 0 4 2 2 0 0 1 0-4zM10 9h3.3v1.5C14 9.4 15 8.7 16.7 8.7c3.1 0 4.3 2 4.3 5.2V20h-3.5v-5.8c0-1.7-.5-2.6-1.9-2.6s-2.1 1-2.1 2.6V20H10z"/></svg>LinkedIn</a>
+      </div>
+    </div>
+    <a class="back-to-top" href="#top">Back to top</a>
+  </footer>
+</body>
 </html>
