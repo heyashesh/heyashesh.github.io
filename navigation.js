@@ -58,8 +58,14 @@ function enableSmoothWheel(scroller, speed = 1) {
 
 if (document.body.classList.contains('about-page')) enableSmoothWheel(document.scrollingElement);
 
+const arrivalStorageKey = 'portfolio-arrival';
+const transitionRoot = document.documentElement;
+if (transitionRoot.dataset.arriving === 'pending') transitionRoot.dataset.arriving = 'covered';
+
+function pickTransitionSeed() { return Math.floor(Math.random() * 0x100000000); }
+
 let overlay;
-function scramble(entering, done) {
+function scramble(entering, done, seed = pickTransitionSeed()) {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
   if (!ctx || !innerWidth || !innerHeight) return done();
@@ -77,17 +83,22 @@ function scramble(entering, done) {
   const visited = new Uint8Array(total);
   const frontier = [];
   const cells = [];
+  let randomState = seed;
+  function random() {
+    randomState = (Math.imul(randomState, 1664525) + 1013904223) >>> 0;
+    return randomState / 0x100000000;
+  }
   function infect(index) {
     if (visited[index]) return;
     visited[index] = 1;
     frontier.push(index);
     cells.push({x: index % cols * 11, y: Math.floor(index / cols) * 17,
-      distance: cells.length, seed: Math.floor(Math.random() * 100)});
+      distance: cells.length, seed: Math.floor(random() * 100)});
   }
-  for (let i = 0; i < 6; i++) infect(Math.floor(Math.random() * total));
+  for (let i = 0; i < 6; i++) infect(Math.floor(random() * total));
   while (frontier.length) {
     // Extend a tip for several cells, then branch from another live tip.
-    const slot = Math.floor(Math.random() * frontier.length);
+    const slot = Math.floor(random() * frontier.length);
     let tip = frontier[slot];
     for (let step = 0; step < 12; step++) {
       const neighbors = [];
@@ -103,11 +114,10 @@ function scramble(entering, done) {
         }
         break;
       }
-      tip = free[Math.floor(Math.random() * free.length)];
+      tip = free[Math.floor(random() * free.length)];
       infect(tip);
     }
   }
-  const maxDistance = total - 1;
   const started = performance.now();
   let finished = false;
   function finish() {
@@ -122,9 +132,10 @@ function scramble(entering, done) {
     const progress = Math.max(0, Math.min(1, (now - started) / 360));
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.font = '14px monospace';
-    const tick = Math.floor(progress * 9);
+    const distance = Math.floor(progress * total);
+    const tick = Math.floor((entering ? 1 - progress : progress) * 9);
     for (const cell of cells) {
-      if ((cell.distance <= progress * maxDistance) === entering) continue;
+      if ((cell.distance < distance) === entering) continue;
       ctx.fillStyle = background;
       ctx.fillRect(cell.x, cell.y, 11, 17);
       ctx.fillStyle = cell.seed % 3 ? '#777' : '#ccc';
@@ -136,30 +147,41 @@ function scramble(entering, done) {
   draw(started);
 }
 function finishArrival() {
-  if (pageRoot.getAttribute('data-arriving') !== 'playing') return;
+  const state = transitionRoot.dataset.arriving;
+  if (state !== 'covered' && state !== 'playing') return;
   overlay?.remove();
   overlay = null;
-  pageRoot.setAttribute('data-arriving', 'complete');
+  transitionRoot.dataset.arriving = 'complete';
+  delete transitionRoot.dataset.transitionSeed;
   dispatchEvent(new Event('arrivalcomplete'));
 }
 
-if (pageRoot.getAttribute('data-arriving') === 'pending') {
-  pageRoot.setAttribute('data-arriving', 'playing');
-  try { scramble(true, finishArrival); }
-  catch { finishArrival(); }
-}
+addEventListener('DOMContentLoaded', () => {
+  if (transitionRoot.dataset.arriving !== 'covered') return;
+  if (reduced.matches) return finishArrival();
+  try {
+    const seed = Number(transitionRoot.dataset.transitionSeed);
+    scramble(true, finishArrival, Number.isInteger(seed) ? seed : undefined);
+    // The first frame is opaque. Later frames uncover the page cell by cell.
+    if (transitionRoot.dataset.arriving === 'covered') transitionRoot.dataset.arriving = 'playing';
+  } catch { finishArrival(); }
+}, {once: true});
 document.addEventListener('click', event => {
   const link = event.target.closest('a[href]');
   if (!link || link.protocol !== location.protocol || link.origin !== location.origin ||
       (link.pathname === location.pathname && link.search === location.search) ||
       reduced.matches || event.defaultPrevented || event.button !== 0 ||
       event.metaKey || event.ctrlKey || event.shiftKey || event.altKey || link.target || link.hasAttribute('download')) return;
+  if (overlay?.isConnected) {
+    event.preventDefault();
+    return;
+  }
+  const seed = pickTransitionSeed();
+  try { sessionStorage.setItem(arrivalStorageKey, JSON.stringify({url:link.href, time:Date.now(), seed})); }
+  catch { return; }
   event.preventDefault();
-  if (overlay?.isConnected) { location.assign(link.href); return; }
-  scramble(false, () => {
-    try { sessionStorage.setItem(transitKey, JSON.stringify({url:link.href, time:Date.now()})); } catch {}
-    location.assign(link.href);
-  });
+  endHover();
+  scramble(false, () => location.assign(link.href), seed);
 });
 addEventListener('pageshow', event => {
   if (!event.persisted) return;
@@ -210,7 +232,7 @@ if (!reduced.matches) {
     }
   });
   addEventListener('DOMContentLoaded', () => {
-    const arriving = pageRoot.getAttribute('data-arriving') === 'playing';
+    const arriving = transitionRoot.dataset.arriving === 'playing';
     const shared = '.wordmark, nav > a, nav > span, .mast-action';
     const targets = document.querySelectorAll(aboutPage
       ? `${shared}, nav > button, [data-reveal], .about-intro, .about-section h2,
@@ -249,7 +271,7 @@ scheduleWordmark();
 let endHover = () => {};
 document.addEventListener('pointerover', event => {
   const link = event.target.closest('a[href], button:enabled');
-  if (!link || link.matches('.decode-pending, .decoding') || link.contains(event.relatedTarget) ||
+  if (!link || overlay?.isConnected || link.matches('.decode-pending, .decoding') || link.contains(event.relatedTarget) ||
       reduced.matches || event.pointerType === 'touch') return;
   endHover();
   const label = [...link.childNodes].find(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());

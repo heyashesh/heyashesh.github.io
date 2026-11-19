@@ -24,57 +24,17 @@ if (!document.documentElement.hasAttribute('data-arriving') && !location.hash &&
       word.textContent = (name.slice(0, count) + noise()).padEnd(name.length);
       await pause(52);
     }
-    word.textContent = '';
-    await pause(450);
-
-    const verse = document.createElement('p');
-    verse.className = 'verse';
-    const line = '“Just take each step you’re able to manage, persevere little by little, and build it up that way.”';
-    verse.setAttribute('aria-label', line);
-    let nextGlyph = 0;
-    function writeText(parent, text) {
-      for (const token of text.split(/(\s+)/)) {
-        if (!token.trim()) { parent.append(token); continue; }
-        const group = document.createElement('span');
-        group.setAttribute('aria-hidden', 'true');
-        for (const letter of token) {
-          const glyph = document.createElement('i');
-          glyph.textContent = letter;
-          glyph.style.animationDelay = nextGlyph + 'ms';
-          nextGlyph += 36;
-          group.append(glyph);
-        }
-        parent.append(group);
-      }
-    }
-    writeText(verse, line);
-    nextGlyph += 560 - 36;
-    const credit = document.createElement('cite');
-    const author = document.createElement('span');
-    author.setAttribute('aria-label', 'Sugaru Miaki');
-    writeText(author, '― Sugaru Miaki, ');
-    const book = document.createElement('a');
-    book.href = 'https://www.goodreads.com/work/quotes/52364681';
-    const title = 'Three Days of Happiness';
-    book.setAttribute('aria-label', title);
-    writeText(book, title);
-    credit.append(author, book);
-    const quotation = document.createElement('blockquote');
-    quotation.append(verse, credit);
-    boot.removeAttribute('aria-hidden');
-    boot.replaceChildren(quotation);
-
-    book.addEventListener('animationend', event => {
-      if (event.target === book.querySelector('span:last-child i:last-child')) book.textContent = title;
-    });
-    const settled = nextGlyph - 36 + 560;
-    setTimeout(() => scramble(false, () => {
+    const seed = pickTransitionSeed();
+    scramble(false, () => {
       overlay?.remove();
       overlay = null;
       boot.hidden = true;
-      dispatchEvent(new Event('introcomplete'));
-      scramble(true, () => { overlay?.remove(); overlay = null; });
-    }), settled + 4800);
+      scramble(true, () => {
+        overlay?.remove();
+        overlay = null;
+        dispatchEvent(new Event('introcomplete'));
+      }, seed);
+    }, seed);
   }
   playIntro();
 }

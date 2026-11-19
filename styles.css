@@ -10,7 +10,7 @@ nav button::after { content: '↗'; margin-left: .35em; }
 .decoding { position: relative; color: transparent !important; }
 @media screen and (prefers-reduced-motion: no-preference) {
   html, .entries { scroll-behavior: smooth; }
-  :root:is([data-arriving="pending"], [data-arriving="playing"]) body > :not(.scramble-screen) { visibility: hidden; }
+  :root:is([data-arriving="pending"], [data-arriving="covered"]) body > :not(.scramble-screen) { visibility: hidden; }
   .decode-pending:not(:focus-visible) { opacity: 0 !important; }
   .revealing { animation: clarify .54s; }
 }
@@ -150,12 +150,6 @@ h2 { font-weight: 400; }
 }
 #boot:not([hidden]) { position: fixed; inset: 0; z-index: 10; background: var(--black); display: grid; place-items: center; overflow: hidden; }
 #boot pre { width: 6ch; margin: 0; font: 750 clamp(2.8rem, 12vw, 10rem)/1 ui-monospace, monospace; letter-spacing: -.075em; animation: fracture .81s steps(1) 4; }
-#boot blockquote { margin: 0; width: min(88vw, 52rem); text-align: center; }
-#boot .verse { margin: 0 0 1.1em; font: italic clamp(20px, 3.2vw, 48px)/1.35 Georgia, serif; }
-#boot cite { display: block; text-align: right; font: .85rem/1.5 ui-monospace, monospace; }
-#boot blockquote span[aria-hidden], #boot blockquote i { display: inline-block; }
-#boot blockquote i { font-style: inherit; animation: settle .56s cubic-bezier(.18,.75,.24,1) backwards; }
-@keyframes settle { from { opacity: 0; filter: blur(10px); transform: scale(2.8) translateY(-.14em); } to { opacity: 1; filter: blur(0); transform: none; } }
 @media (prefers-reduced-motion: reduce) {
   .wordmark:hover, .wordmark:focus-visible { animation: none; }
   .entries { transform: none !important; }
