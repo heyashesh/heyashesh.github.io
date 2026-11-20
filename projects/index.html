@@ -6,10 +6,9 @@
   <meta name="description" content="Selected mathematics and software projects by Ashesh Das.">
   <meta name="theme-color" content="#0c0c0c">
   <title>Projects — Ashesh Das</title>
-  <link rel="stylesheet" href="../styles.css?v=17">
+  <link rel="stylesheet" href="../styles.css?v=32">
   <script src="../portfolio.js?v=8" defer></script>
-  <script src="../projects.js?v=5" defer></script>
-  <script src="../navigation.js?v=12" defer></script>
+  <script src="../navigation.js?v=22" defer></script>
 </head>
 <body data-page="projects">
   <div id="site">
@@ -18,11 +17,68 @@
     </header>
     <div id="page-frame">
       <main id="page-content" class="page projects" data-page="projects" tabindex="-1" aria-label="Projects">
-        <div class="entries" data-reveal>
-          <a href="https://github.com/heyashesh/matrix-lab">Matrix Lab</a>
-          <a href="https://github.com/heyashesh/heyashesh.github.io">Portfolio</a>
-          <a href="https://github.com/heyashesh/heyashesh">Profile README</a>
+        <div class="project-feed">
+          <article class="project" data-reveal data-repository="https://github.com/heyashesh/matrix-lab">
+            <h2>
+              <button class="project-trigger" type="button" aria-haspopup="dialog" aria-controls="project-dialog">
+                <span class="project-title" data-decode>Matrix Lab</span>
+              </button>
+            </h2>
+            <p data-decode>A matrix calculator and linear algebra toolkit I’m building from scratch in Java.</p>
+            <ul class="project-tags" aria-label="Tags" role="list">
+              <li data-decode>Java</li>
+              <li data-decode>Linear algebra</li>
+            </ul>
+          </article>
+          <article class="project" data-reveal data-repository="https://github.com/heyashesh/heyashesh.github.io">
+            <h2>
+              <button class="project-trigger" type="button" aria-haspopup="dialog" aria-controls="project-dialog">
+                <span class="project-title" data-decode>Portfolio</span>
+              </button>
+            </h2>
+            <p data-decode>This site brings together my projects and a little about me, with an ASCII opening and animated page transitions.</p>
+            <ul class="project-tags" aria-label="Tags" role="list">
+              <li data-decode>HTML</li>
+              <li data-decode>CSS</li>
+              <li data-decode>JavaScript</li>
+            </ul>
+          </article>
+          <article class="project" data-reveal data-repository="https://github.com/heyashesh/heyashesh">
+            <h2>
+              <button class="project-trigger" type="button" aria-haspopup="dialog" aria-controls="project-dialog">
+                <span class="project-title" data-decode>Profile README</span>
+              </button>
+            </h2>
+            <p data-decode>A short introduction on GitHub with what I’m studying and what I’m learning along the way.</p>
+            <ul class="project-tags" aria-label="Tags" role="list">
+              <li data-decode>GitHub</li>
+              <li data-decode>Markdown</li>
+            </ul>
+          </article>
         </div>
+        <dialog class="project-dialog" id="project-dialog" aria-labelledby="project-detail-title">
+          <header class="project-detail-header">
+            <form method="dialog">
+              <button type="submit" autofocus><span data-decode>close</span></button>
+            </form>
+          </header>
+          <section class="project-detail" aria-labelledby="project-detail-title">
+            <div>
+              <h2 id="project-detail-title" data-decode></h2>
+              <p class="project-detail-summary" data-decode></p>
+            </div>
+            <dl class="skill-groups">
+              <div>
+                <dt data-decode>Tools</dt>
+                <dd><ul class="project-tags" role="list"></ul></dd>
+              </div>
+              <div>
+                <dt data-decode>Source</dt>
+                <dd><a class="project-detail-source arrow-link" target="_blank" rel="noopener" data-decode>GitHub</a></dd>
+              </div>
+            </dl>
+          </section>
+        </dialog>
       </main>
     </div>
     <nav class="site-nav" aria-label="Portfolio navigation">

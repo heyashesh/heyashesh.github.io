@@ -63,17 +63,80 @@
     draw(performance.now());
   }
 
-  function animateElements(elements, signal) {
+  function animateElements(elements, signal, delay = 0) {
     if (reducedMotion.matches) return;
     elements.forEach((element, index) => {
       if (element.hasAttribute('data-reveal')) {
-        element.style.setProperty('--reveal-delay', index * 70 + 'ms');
+        element.style.setProperty('--reveal-delay', (delay + index * 70) + 'ms');
         element.classList.add('revealing');
         return;
       }
 
-      decodeLabel(element, signal, index * 65);
+      decodeLabel(element, signal, delay + index * 65);
     });
+  }
+
+  function mountProjectFeed(feed, signal) {
+    const cards = [...feed.children];
+    feed.classList.add('masonry');
+    const styles = getComputedStyle(feed);
+    const rowHeight = parseFloat(styles.gridAutoRows);
+
+    // Each card spans enough grid rows for its content and the gap below it.
+    function place(card, height, gap) {
+      card.style.setProperty('--project-rows', Math.ceil((height + gap) / rowHeight));
+    }
+
+    const gap = parseFloat(styles.columnGap);
+    const heights = cards.map(card => card.getBoundingClientRect().height);
+    cards.forEach((card, index) => place(card, heights[index], gap));
+    const observer = new ResizeObserver(entries => {
+      const gap = parseFloat(styles.columnGap);
+      for (const {target, borderBoxSize} of entries) place(target, borderBoxSize[0].blockSize, gap);
+    });
+    cards.forEach(card => observer.observe(card, {box: 'border-box'}));
+    signal.addEventListener('abort', () => observer.disconnect(), {once: true});
+  }
+
+  function mountProjectDialog(feed, dialog, signal) {
+    const title = dialog.querySelector('#project-detail-title');
+    const summary = dialog.querySelector('.project-detail-summary');
+    const source = dialog.querySelector('.project-detail-source');
+    const tags = dialog.querySelector('.project-tags');
+    const closeForm = dialog.querySelector('.project-detail-header form');
+    feed.addEventListener('click', event => {
+      const trigger = event.target.closest('.project-trigger');
+      if (!trigger) return;
+      const card = trigger.closest('.project');
+      title.textContent = trigger.textContent.trim();
+      summary.textContent = card.querySelector('p').textContent.trim();
+      source.href = card.dataset.repository;
+      tags.replaceChildren(...Array.from(card.querySelectorAll('.project-tags > li'), cardTag => {
+        const tag = document.createElement('li');
+        tag.textContent = cardTag.textContent;
+        tag.setAttribute('data-decode', '');
+        return tag;
+      }));
+      trigger.focus({preventScroll: true});
+      dialog.showModal();
+      dialog.scrollTop = 0;
+      animateElements(dialog.querySelectorAll('[data-decode]'), signal);
+    }, {signal});
+
+    async function dismiss(event) {
+      event.preventDefault();
+      if (dialog.classList.contains('is-closing')) return;
+
+      dialog.classList.add('is-closing');
+      const transitions = dialog.getAnimations?.({subtree: true}) ?? [];
+      await Promise.allSettled(transitions.map(transition => transition.finished));
+      if (!signal.aborted) dialog.close();
+      dialog.classList.remove('is-closing');
+    }
+
+    closeForm.addEventListener('submit', dismiss, {signal});
+    dialog.addEventListener('cancel', dismiss, {signal});
+    signal.addEventListener('abort', () => dialog.close(), {once: true});
   }
 
   function mountPage(signal, animateNavigation = false) {
@@ -88,9 +151,14 @@
       signal.addEventListener('abort', () => clearInterval(timer), {once: true});
     }
 
-    const projects = current.querySelector('.entries');
-    if (projects) initProjects(projects, reducedMotion, signal);
-    animateElements([...current.querySelectorAll('[data-reveal], [data-decode]')], signal);
+    const feed = current.querySelector('.project-feed');
+    if (feed) {
+      mountProjectDialog(feed, current.querySelector('.project-dialog'), signal);
+      if (typeof ResizeObserver === 'function') mountProjectFeed(feed, signal);
+    }
+    current.querySelectorAll('[data-reveal]').forEach((group, index) => {
+      animateElements([group, ...group.querySelectorAll('[data-decode]')], signal, Math.min(index, 6) * 90);
+    });
     if (animateNavigation) animateElements(navigation.filter(link => link.hasAttribute('data-decode')), signal);
   }
 
@@ -142,11 +210,7 @@
     const fragment = url.hash.slice(1);
     const anchor = fragment && document.getElementById(fragment);
     if (anchor) anchor.scrollIntoView();
-    else scrollTo({top: restoreScroll ? scroll?.window ?? 0 : 0, behavior: 'instant'});
-    if (restoreScroll && scroll?.projects) {
-      const entries = current.querySelector('.entries');
-      if (entries) entries.scrollTop = scroll.projects;
-    }
+    else scrollTo({top: restoreScroll ? scroll ?? 0 : 0, behavior: 'instant'});
 
     current.focus({preventScroll: true});
     mountPage(pageEffects.signal);
@@ -168,11 +232,14 @@
         const html = new DOMParser().parseFromString(await response.text(), 'text/html');
         const main = html.querySelector('#page-content');
         if (main?.dataset.page !== routes.get(path)) throw new Error('Page layout was not found.');
+        for (const image of main.querySelectorAll('img[src]')) {
+          image.src = new URL(image.getAttribute('src'), response.url).href;
+        }
         page = {main, title: html.title};
         pages.set(path, page);
       }
       if (request.signal.aborted) return;
-      positions.set(currentPath, {window: scrollY, projects: current.querySelector('.entries')?.scrollTop});
+      positions.set(currentPath, scrollY);
       if (!fromHistory) {
         const destination = new URL(url);
         if (destination.hash === '#page-content') destination.hash = '';
@@ -208,10 +275,11 @@
   }
 
   site.addEventListener('pointerover', event => {
-    const label = event.target.closest('.site-nav a, .information a[href]');
-    if (!label || label.contains(event.relatedTarget) || labelAnimations.has(label) ||
+    const control = event.target.closest('.site-nav a, .information a[href], .project-trigger, .project-detail-header button');
+    if (!control || control.contains(event.relatedTarget) ||
         event.pointerType === 'touch' || reducedMotion.matches) return;
-    decodeLabel(label, pageEffects.signal);
+    const label = control.querySelector('[data-decode]') ?? control;
+    if (!labelAnimations.has(label)) decodeLabel(label, pageEffects.signal);
   });
 
   // Native navigation, including file previews, replaces the wordmark along with the page.
